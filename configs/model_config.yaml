@@ -1,0 +1,33 @@
+# Model Architecture Configuration
+
+# Classical Model (ResNet18)
+classical:
+  model_name: "resnet18"
+  pretrained: true
+  freeze_layers: true  # Freeze ResNet layers for feature extraction
+  feature_dim: 4  # Output dimension for quantum circuit input
+
+# Quantum Circuit
+quantum:
+  n_qubits: 4
+  n_layers: 3  # Number of variational layers
+  device: "default.qubit"  # PennyLane device
+  diff_method: "parameter-shift"  # or "backprop" for simulation
+  interface: "torch"  # PyTorch interface
+
+  # Circuit architecture
+  encoding: "angle"  # angle encoding method
+  entanglement: "linear"  # CNOT pattern: 0→1, 1→2, 2→3, 3→0
+  rotation_gates: ["RY"]  # Rotation gates to use
+
+# Output Layer
+output:
+  n_classes: 10  # MNIST digits 0-9
+  activation: "softmax"
+
+# Model saving
+checkpointing:
+  save_every_epoch: true
+  save_best_only: false
+  metric: "val_accuracy"  # Metric to monitor for best model
+  mode: "max"  # max for accuracy, min for loss
