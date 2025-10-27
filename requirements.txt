@@ -1,71 +1,26 @@
-# Hybrid Quantum-Classical Machine Learning for MNIST
-# Python 3.9+ required
+# Adaptive QAOA for MaxCut Problem
+# Python 3.9-3.12 compatible
 
-# Core Deep Learning
-torch==2.1.0
-torchvision==0.16.0
-torchaudio==2.1.0
+# Quantum Computing
+pennylane==0.35.0
+pennylane-lightning==0.35.0
 
-# Quantum Machine Learning
-pennylane==0.43.0
-pennylane-lightning==0.43.0
+# Scientific Computing
+numpy<2.0.0
+scipy>=1.10.0
 
-# Machine Learning & Scientific Computing
-numpy==1.24.3
-scikit-learn==1.3.2
-scipy==1.11.4
+# Graph Processing
+networkx>=3.0
 
 # Visualization
-matplotlib==3.8.2
-seaborn==0.13.0
-plotly==5.18.0
-kaleido==0.2.1
+matplotlib>=3.7.0
+plotly>=5.14.0
 
-# TensorBoard
-tensorboard==2.15.1
-torch-tb-profiler==0.4.3
-
-# MLflow for Experiment Tracking
-mlflow==2.9.2
-protobuf==4.25.1
-
-# Streamlit Web Application
-streamlit==1.29.0
-streamlit-drawable-canvas==0.9.3
-
-# Image Processing
-Pillow==10.1.0
-opencv-python==4.8.1.78
-
-# Gemini AI Integration
-google-generativeai==0.3.2
-google-ai-generativelanguage==0.4.0
-
-# Configuration & Environment
-pyyaml==6.0.1
-python-dotenv==1.0.0
-
-# Progress Bars & CLI
-tqdm==4.66.1
-click==8.1.7
+# Web Application
+streamlit>=1.29.0
 
 # Data Handling
-pandas==2.1.4
+pandas>=2.0.0
 
-# Testing
-pytest==7.4.3
-pytest-cov==4.1.0
-
-# Jupyter Notebooks
-jupyter==1.0.0
-ipykernel==6.27.1
-ipywidgets==8.1.1
-
-# Code Quality (optional)
-black==23.12.1
-flake8==6.1.0
-mypy==1.7.1
-
-# Additional Utilities
-requests==2.31.0
-colorama==0.4.6
+# Utilities
+tqdm>=4.65.0
