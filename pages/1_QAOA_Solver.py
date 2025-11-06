@@ -11,6 +11,35 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 
+def draw_edge_labels_above(G, pos, edge_labels, ax, font_size=12, offset=0.06):
+    """Draw edge labels above the edges instead of on top of them"""
+    for (u, v), label in edge_labels.items():
+        # Calculate midpoint
+        x = (pos[u][0] + pos[v][0]) / 2
+        y = (pos[u][1] + pos[v][1]) / 2
+
+        # Calculate perpendicular offset direction
+        dx = pos[v][0] - pos[u][0]
+        dy = pos[v][1] - pos[u][1]
+        length = (dx**2 + dy**2)**0.5
+
+        if length > 0:
+            # Perpendicular vector (rotated 90 degrees)
+            perp_x = -dy / length
+            perp_y = dx / length
+
+            # Offset position above the edge
+            label_x = x + perp_x * offset
+            label_y = y + perp_y * offset
+        else:
+            label_x, label_y = x, y
+
+        ax.text(label_x, label_y, str(label),
+                fontsize=font_size, fontweight='bold',
+                ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow',
+                         edgecolor='black', linewidth=1.5, alpha=0.9))
+
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -141,6 +170,13 @@ else:  # Generate Random Graph
     graph = nx.gnp_random_graph(n_nodes, edge_prob, seed=seed)
     graph_name = f"Random Graph ({n_nodes} nodes, seed={seed})"
 
+# Add random weights to edges if not already present
+if graph is not None:
+    np.random.seed(42)  # For consistent weights
+    for u, v in graph.edges():
+        if not graph.has_edge(u, v) or 'weight' not in graph[u][v]:
+            graph[u][v]['weight'] = np.random.randint(1, 10)
+
 with col1:
     st.markdown("### 📊 Problem Instance")
 
@@ -159,6 +195,12 @@ with col1:
         nx.draw(graph, pos, with_labels=True, node_color='lightblue',
                 node_size=700, font_size=12, font_weight='bold',
                 edge_color='gray', width=2, ax=ax1)
+
+        # Draw edge weights
+        edge_labels = nx.get_edge_attributes(graph, 'weight')
+        if edge_labels:
+            draw_edge_labels_above(graph, pos, edge_labels, ax1, font_size=11, offset=0.08)
+
         ax1.set_title(f"{graph_name}", fontsize=14, fontweight='bold')
         st.pyplot(fig1)
 
@@ -218,6 +260,11 @@ with col2:
                                       node_color='yellow', node_size=900,
                                       edgecolors='black', linewidths=3, ax=ax_sim)
 
+                # Draw edge weights
+                edge_labels = nx.get_edge_attributes(graph, 'weight')
+                if edge_labels:
+                    draw_edge_labels_above(graph, pos, edge_labels, ax_sim, font_size=10, offset=0.08)
+
                 # Highlight cut edges
                 cut_edges = [(u, v) for u, v in graph.edges()
                            if (u in partition_A and v in partition_B) or
@@ -249,23 +296,122 @@ with col2:
         st.success(f"✅ **Greedy Cut Size**: {greedy_cut}/{len(graph.edges())}  \n"
                    f"📈 **Approximation Ratio**: {greedy_ratio:.2%}")
 
-        # Visualize final greedy solution
-        fig2, ax2 = plt.subplots(figsize=(6, 5))
-        node_colors = ['red' if node in partition_A_greedy else 'blue'
-                       for node in graph.nodes()]
-        nx.draw(graph, pos, with_labels=True, node_color=node_colors,
-                node_size=700, font_size=12, font_weight='bold',
-                edge_color='lightgray', width=2, ax=ax2)
+        # Get cut edges for greedy
+        cut_edges_greedy = [(u, v) for u, v in graph.edges()
+                           if (u in partition_A_greedy and v in partition_B_greedy) or
+                              (u in partition_B_greedy and v in partition_A_greedy)]
 
-        # Highlight cut edges
-        cut_edges = [(u, v) for u, v in graph.edges()
-                     if (u in partition_A_greedy and v in partition_B_greedy) or
-                        (u in partition_B_greedy and v in partition_A_greedy)]
-        nx.draw_networkx_edges(graph, pos, cut_edges, edge_color='green',
-                               width=3, ax=ax2)
-        ax2.set_title(f"Greedy Final Solution (Cut: {greedy_cut})",
-                      fontsize=14, fontweight='bold')
-        st.pyplot(fig2)
+        # Display partition info
+        col_g1, col_g2, col_g3 = st.columns(3)
+        with col_g1:
+            st.info(f"**Partition A (Red)**\nNodes: {sorted(partition_A_greedy)}")
+        with col_g2:
+            st.success(f"**Cut Edges (Green)**\n{len(cut_edges_greedy)} edges crossing")
+        with col_g3:
+            st.info(f"**Partition B (Blue)**\nNodes: {sorted(partition_B_greedy)}")
+
+        # Create side-by-side partition visualization for Greedy
+        st.markdown("##### 📊 Greedy Partitions Separated")
+
+        fig_greedy, (ax_g1, ax_g2, ax_g3) = plt.subplots(1, 3, figsize=(18, 6))
+
+        # LEFT: Partition A only
+        subgraph_A_greedy = graph.subgraph(partition_A_greedy)
+        pos_A_greedy = {node: pos[node] for node in partition_A_greedy}
+
+        nx.draw_networkx_nodes(subgraph_A_greedy, pos_A_greedy, node_color='red',
+                              node_size=800, alpha=0.9, ax=ax_g1)
+        nx.draw_networkx_edges(subgraph_A_greedy, pos_A_greedy, edge_color='darkred',
+                              width=3, alpha=0.6, ax=ax_g1)
+        nx.draw_networkx_labels(subgraph_A_greedy, pos_A_greedy, font_color='white',
+                               font_weight='bold', font_size=14, ax=ax_g1)
+
+        # Add edge weights for Partition A
+        edge_labels_A_greedy = {(u,v): graph[u][v].get('weight', '')
+                               for u,v in subgraph_A_greedy.edges() if 'weight' in graph[u][v]}
+        if edge_labels_A_greedy:
+            draw_edge_labels_above(subgraph_A_greedy, pos_A_greedy, edge_labels_A_greedy, ax_g1,
+                                  font_size=10, offset=0.08)
+
+        ax_g1.set_title(f"PARTITION A (Red)\n{len(partition_A_greedy)} nodes, {len(subgraph_A_greedy.edges())} internal edges",
+                       fontsize=13, fontweight='bold', color='darkred')
+        ax_g1.axis('off')
+
+        # Add text box
+        ax_g1.text(0.5, -0.15, f"Nodes: {sorted(partition_A_greedy)}",
+                  ha='center', transform=ax_g1.transAxes,
+                  bbox=dict(boxstyle='round', facecolor='lightcoral', alpha=0.8),
+                  fontsize=10, fontweight='bold')
+
+        # CENTER: Complete graph with cut edges
+        node_colors_greedy = ['red' if node in partition_A_greedy else 'blue'
+                             for node in graph.nodes()]
+
+        nx.draw_networkx_nodes(graph, pos, node_color=node_colors_greedy,
+                              node_size=800, alpha=0.9, ax=ax_g2)
+
+        # Draw non-cut edges in gray
+        non_cut_edges_greedy = [(u, v) for u, v in graph.edges()
+                               if (u, v) not in cut_edges_greedy and (v, u) not in cut_edges_greedy]
+        nx.draw_networkx_edges(graph, pos, edgelist=non_cut_edges_greedy,
+                              edge_color='lightgray', width=2, alpha=0.4, ax=ax_g2)
+
+        # Draw cut edges in GREEN with thick lines
+        nx.draw_networkx_edges(graph, pos, edgelist=cut_edges_greedy,
+                              edge_color='green', width=6, alpha=1.0, ax=ax_g2)
+
+        nx.draw_networkx_labels(graph, pos, font_color='white',
+                               font_weight='bold', font_size=14, ax=ax_g2)
+
+        # Add edge weights
+        edge_labels = nx.get_edge_attributes(graph, 'weight')
+        if edge_labels:
+            draw_edge_labels_above(graph, pos, edge_labels, ax_g2, font_size=10, offset=0.08)
+
+        ax_g2.set_title(f"COMPLETE GRAPH\n✂️ {len(cut_edges_greedy)} CUT EDGES (Green)",
+                       fontsize=13, fontweight='bold', color='green')
+        ax_g2.axis('off')
+
+        # Add cut edges list
+        cut_edges_str_greedy = ', '.join([f"({u},{v})" for u, v in list(cut_edges_greedy)[:5]])
+        if len(cut_edges_greedy) > 5:
+            cut_edges_str_greedy += f"... ({len(cut_edges_greedy)} total)"
+        ax_g2.text(0.5, -0.15, f"Cut edges: {cut_edges_str_greedy}",
+                  ha='center', transform=ax_g2.transAxes,
+                  bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.8),
+                  fontsize=9, fontweight='bold')
+
+        # RIGHT: Partition B only
+        subgraph_B_greedy = graph.subgraph(partition_B_greedy)
+        pos_B_greedy = {node: pos[node] for node in partition_B_greedy}
+
+        nx.draw_networkx_nodes(subgraph_B_greedy, pos_B_greedy, node_color='blue',
+                              node_size=800, alpha=0.9, ax=ax_g3)
+        nx.draw_networkx_edges(subgraph_B_greedy, pos_B_greedy, edge_color='darkblue',
+                              width=3, alpha=0.6, ax=ax_g3)
+        nx.draw_networkx_labels(subgraph_B_greedy, pos_B_greedy, font_color='white',
+                               font_weight='bold', font_size=14, ax=ax_g3)
+
+        # Add edge weights for Partition B
+        edge_labels_B_greedy = {(u,v): graph[u][v].get('weight', '')
+                               for u,v in subgraph_B_greedy.edges() if 'weight' in graph[u][v]}
+        if edge_labels_B_greedy:
+            draw_edge_labels_above(subgraph_B_greedy, pos_B_greedy, edge_labels_B_greedy, ax_g3,
+                                  font_size=10, offset=0.08)
+
+        ax_g3.set_title(f"PARTITION B (Blue)\n{len(partition_B_greedy)} nodes, {len(subgraph_B_greedy.edges())} internal edges",
+                       fontsize=13, fontweight='bold', color='darkblue')
+        ax_g3.axis('off')
+
+        # Add text box
+        ax_g3.text(0.5, -0.15, f"Nodes: {sorted(partition_B_greedy)}",
+                  ha='center', transform=ax_g3.transAxes,
+                  bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8),
+                  fontsize=10, fontweight='bold')
+
+        plt.tight_layout()
+        st.pyplot(fig_greedy)
+        plt.close(fig_greedy)
 
 st.markdown("---")
 
@@ -368,6 +514,11 @@ if run_button and graph is not None:
                                node_size=600, font_size=10, font_weight='bold',
                                edge_color='lightgray', width=2, ax=ax_sample)
 
+                        # Draw edge weights
+                        edge_labels = nx.get_edge_attributes(graph, 'weight')
+                        if edge_labels:
+                            draw_edge_labels_above(graph, pos, edge_labels, ax_sample, font_size=9, offset=0.07)
+
                         # Highlight cut edges
                         cut_edges_sample = [(u, v) for u, v in graph.edges()
                                           if (u in partition_A_sample and v in partition_B_sample) or
@@ -400,6 +551,11 @@ if run_button and graph is not None:
                         nx.draw(graph, pos, with_labels=True, node_color=node_colors_best,
                                node_size=600, font_size=10, font_weight='bold',
                                edge_color='lightgray', width=2, ax=ax_best)
+
+                        # Draw edge weights
+                        edge_labels = nx.get_edge_attributes(graph, 'weight')
+                        if edge_labels:
+                            draw_edge_labels_above(graph, pos, edge_labels, ax_best, font_size=9, offset=0.07)
 
                         # Highlight cut edges in best solution
                         cut_edges_best = [(u, v) for u, v in graph.edges()
@@ -611,29 +767,137 @@ if run_button and graph is not None:
         st.info(summary_text)
 
     # Visualize QAOA solution
-    st.markdown("### ✂️ QAOA Solution")
+    st.markdown("### ✂️ QAOA Solution Visualization")
 
-    col6, col7 = st.columns(2)
+    # Get QAOA partitions
+    partition_A_qaoa, partition_B_qaoa = bitstring_to_partition(results['best_bitstring'])
+    cut_edges_qaoa = [(u, v) for u, v in graph.edges()
+                     if (u in partition_A_qaoa and v in partition_B_qaoa) or
+                        (u in partition_B_qaoa and v in partition_A_qaoa)]
 
-    with col6:
-        partition_A_qaoa, partition_B_qaoa = bitstring_to_partition(results['best_bitstring'])
+    # Display partition info
+    col_info1, col_info2, col_info3 = st.columns(3)
+    with col_info1:
+        st.info(f"**Partition A (Red)**\nNodes: {sorted(partition_A_qaoa)}")
+    with col_info2:
+        st.success(f"**Cut Edges (Green)**\n{len(cut_edges_qaoa)} edges crossing")
+    with col_info3:
+        st.info(f"**Partition B (Blue)**\nNodes: {sorted(partition_B_qaoa)}")
 
-        fig3, ax3 = plt.subplots(figsize=(6, 5))
-        node_colors_qaoa = ['red' if node in partition_A_qaoa else 'blue'
+    # Create side-by-side partition visualization
+    st.markdown("#### 📊 Partitions Separated")
+
+    fig_partitions, (ax_left, ax_center, ax_right) = plt.subplots(1, 3, figsize=(18, 6))
+
+    # LEFT: Partition A only
+    subgraph_A = graph.subgraph(partition_A_qaoa)
+    pos_A = {node: pos[node] for node in partition_A_qaoa}
+
+    nx.draw_networkx_nodes(subgraph_A, pos_A, node_color='red',
+                          node_size=800, alpha=0.9, ax=ax_left)
+    nx.draw_networkx_edges(subgraph_A, pos_A, edge_color='darkred',
+                          width=3, alpha=0.6, ax=ax_left)
+    nx.draw_networkx_labels(subgraph_A, pos_A, font_color='white',
+                           font_weight='bold', font_size=14, ax=ax_left)
+
+    # Add edge weights for Partition A
+    edge_labels_A = {(u,v): graph[u][v].get('weight', '')
+                     for u,v in subgraph_A.edges() if 'weight' in graph[u][v]}
+    if edge_labels_A:
+        draw_edge_labels_above(subgraph_A, pos_A, edge_labels_A, ax_left,
+                              font_size=10, offset=0.08)
+
+    ax_left.set_title(f"PARTITION A (Red)\n{len(partition_A_qaoa)} nodes, {len(subgraph_A.edges())} internal edges",
+                     fontsize=13, fontweight='bold', color='darkred')
+    ax_left.axis('off')
+
+    # Add text box
+    ax_left.text(0.5, -0.15, f"Nodes: {sorted(partition_A_qaoa)}",
+                ha='center', transform=ax_left.transAxes,
+                bbox=dict(boxstyle='round', facecolor='lightcoral', alpha=0.8),
+                fontsize=10, fontweight='bold')
+
+    # CENTER: Complete graph with cut edges highlighted
+    node_colors_complete = ['red' if node in partition_A_qaoa else 'blue'
                            for node in graph.nodes()]
-        nx.draw(graph, pos, with_labels=True, node_color=node_colors_qaoa,
-                node_size=700, font_size=12, font_weight='bold',
-                edge_color='lightgray', width=2, ax=ax3)
 
-        # Highlight cut edges
-        cut_edges_qaoa = [(u, v) for u, v in graph.edges()
-                         if (u in partition_A_qaoa and v in partition_B_qaoa) or
-                            (u in partition_B_qaoa and v in partition_A_qaoa)]
-        nx.draw_networkx_edges(graph, pos, cut_edges_qaoa, edge_color='lime',
-                              width=4, ax=ax3)
-        ax3.set_title(f"QAOA Solution (Cut: {results['cut_size']})",
-                     fontsize=14, fontweight='bold')
-        st.pyplot(fig3)
+    nx.draw_networkx_nodes(graph, pos, node_color=node_colors_complete,
+                          node_size=800, alpha=0.9, ax=ax_center)
+
+    # Draw non-cut edges (within partitions) in gray
+    non_cut_edges = [(u, v) for u, v in graph.edges()
+                     if (u, v) not in cut_edges_qaoa and (v, u) not in cut_edges_qaoa]
+    nx.draw_networkx_edges(graph, pos, edgelist=non_cut_edges,
+                          edge_color='lightgray', width=2, alpha=0.4, ax=ax_center)
+
+    # Draw cut edges in BRIGHT GREEN with thick lines
+    nx.draw_networkx_edges(graph, pos, edgelist=cut_edges_qaoa,
+                          edge_color='lime', width=6, alpha=1.0,
+                          style='solid', ax=ax_center)
+
+    nx.draw_networkx_labels(graph, pos, font_color='white',
+                           font_weight='bold', font_size=14, ax=ax_center)
+
+    # Add edge weights
+    edge_labels = nx.get_edge_attributes(graph, 'weight')
+    if edge_labels:
+        draw_edge_labels_above(graph, pos, edge_labels, ax_center,
+                              font_size=10, offset=0.08)
+
+    ax_center.set_title(f"COMPLETE GRAPH\n✂️ {len(cut_edges_qaoa)} CUT EDGES (Bright Green)",
+                       fontsize=13, fontweight='bold', color='green')
+    ax_center.axis('off')
+
+    # Add cut edges list
+    cut_edges_str = ', '.join([f"({u},{v})" for u, v in list(cut_edges_qaoa)[:5]])
+    if len(cut_edges_qaoa) > 5:
+        cut_edges_str += f"... ({len(cut_edges_qaoa)} total)"
+    ax_center.text(0.5, -0.15, f"Cut edges: {cut_edges_str}",
+                  ha='center', transform=ax_center.transAxes,
+                  bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.8),
+                  fontsize=9, fontweight='bold')
+
+    # RIGHT: Partition B only
+    subgraph_B = graph.subgraph(partition_B_qaoa)
+    pos_B = {node: pos[node] for node in partition_B_qaoa}
+
+    nx.draw_networkx_nodes(subgraph_B, pos_B, node_color='blue',
+                          node_size=800, alpha=0.9, ax=ax_right)
+    nx.draw_networkx_edges(subgraph_B, pos_B, edge_color='darkblue',
+                          width=3, alpha=0.6, ax=ax_right)
+    nx.draw_networkx_labels(subgraph_B, pos_B, font_color='white',
+                           font_weight='bold', font_size=14, ax=ax_right)
+
+    # Add edge weights for Partition B
+    edge_labels_B = {(u,v): graph[u][v].get('weight', '')
+                     for u,v in subgraph_B.edges() if 'weight' in graph[u][v]}
+    if edge_labels_B:
+        draw_edge_labels_above(subgraph_B, pos_B, edge_labels_B, ax_right,
+                              font_size=10, offset=0.08)
+
+    ax_right.set_title(f"PARTITION B (Blue)\n{len(partition_B_qaoa)} nodes, {len(subgraph_B.edges())} internal edges",
+                      fontsize=13, fontweight='bold', color='darkblue')
+    ax_right.axis('off')
+
+    # Add text box
+    ax_right.text(0.5, -0.15, f"Nodes: {sorted(partition_B_qaoa)}",
+                 ha='center', transform=ax_right.transAxes,
+                 bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8),
+                 fontsize=10, fontweight='bold')
+
+    plt.tight_layout()
+    st.pyplot(fig_partitions)
+    plt.close(fig_partitions)
+
+    # Show summary
+    st.success(f"""
+    **✂️ MaxCut Solution Summary:**
+    - **Total Graph**: {len(graph.nodes())} nodes, {len(graph.edges())} edges
+    - **Partition A**: {len(partition_A_qaoa)} nodes (Red), {len(subgraph_A.edges())} internal edges
+    - **Partition B**: {len(partition_B_qaoa)} nodes (Blue), {len(subgraph_B.edges())} internal edges
+    - **CUT EDGES**: {len(cut_edges_qaoa)} edges crossing between partitions (Bright Green)
+    - **Cut Ratio**: {len(cut_edges_qaoa)}/{len(graph.edges())} = {results['approximation_ratio']:.1%}
+    """)
 
     with col7:
         st.markdown("#### 📊 Convergence History")
